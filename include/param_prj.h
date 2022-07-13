@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define VER 5.19.R
+#define VER 5.22.B
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
@@ -25,7 +25,7 @@
    3. Display values
  */
 //Next param id (increase when adding new parameter!): 139
-//Next value Id: 2049
+//Next value Id: 2050
 /*              category     name         unit       min     max     default id */
 
 #define MOTOR_PARAMETERS_COMMON \
@@ -53,8 +53,7 @@
     PARAM_ENTRY(CAT_MOTOR,   curkp,       "",        0,      20000,  32,     107 ) \
     PARAM_ENTRY(CAT_MOTOR,   curki,       "",        0,      100000, 20000,  108 ) \
     PARAM_ENTRY(CAT_MOTOR,   curkifrqgain,"dig/Hz",  0,      1000,   50,     120 ) \
-    PARAM_ENTRY(CAT_MOTOR,   fwkp,        "",        -10000, 0,      -100,   118 ) \
-    PARAM_ENTRY(CAT_MOTOR,   ffwstart,    "Hz",      0,      1000,   200,    136 ) \
+    PARAM_ENTRY(CAT_MOTOR,   fwkp,        "",        0,      10000,  1,      139 ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncadv,     "dig/Hz",  0,      65535,  10,     133 )
 
@@ -158,10 +157,10 @@
 
 #define VALUE_BLOCK2 \
     VALUE_ENTRY(fstat,       "Hz",    2011 ) \
+    VALUE_ENTRY(amp,         "dig",   2013 ) \
     VALUE_ENTRY(speed,       "rpm",   2012 ) \
     VALUE_ENTRY(cruisespeed, "rpm",   2041 ) \
     VALUE_ENTRY(turns,       "",      2037 ) \
-    VALUE_ENTRY(amp,         "dig",   2013 ) \
     VALUE_ENTRY(angle,       "°",     2014 ) \
     VALUE_ENTRY(pot,         "dig",   2015 ) \
     VALUE_ENTRY(pot2,        "dig",   2016 ) \
@@ -198,6 +197,7 @@
     VALUE_ENTRY(ifw,     "A",     2048 ) \
     VALUE_ENTRY(ud,      "dig",   2046 ) \
     VALUE_ENTRY(uq,      "dig",   2047 ) \
+    VALUE_ENTRY(qlimit,  "dig",   2049 ) \
 
 #if CONTROL == CTRL_SINE
 #define PARAM_LIST \

@@ -35,8 +35,6 @@
 #define DIGIT_TO_DEGREE(a) FP_FROMINT(angle) / (65536 / 360)
 
 static int initwait = 0;
-static int fwBaseGain = 0;
-static s32fp idref = 0;
 static int curki = 0;
 static const s32fp dcCurFac = FP_FROMFLT(0.81649658092772603273 * 1.05); //sqrt(2/3)*1.05 (inverter losses)
 static tim_oc_id ocChannels[3];
@@ -49,8 +47,8 @@ void PwmGeneration::Run()
    if (opmode == MOD_MANUAL || opmode == MOD_RUN)
    {
       static s32fp idcFiltered = 0;
+      //int dir = frqFiltered > FP_FROMINT(10) ? Encoder::GetRotorDirection() : Param::GetInt(Param::dir);
       int dir = Param::GetInt(Param::dir);
-      int moddedfwkp;
       int kifrqgain = Param::GetInt(Param::curkifrqgain);
       s32fp id, iq;
 
@@ -62,36 +60,14 @@ void PwmGeneration::Run()
       frqFiltered = IIRFILTER(frqFiltered, frq, 8);
       int moddedKi = curki + kifrqgain * FP_TOINT(frqFiltered);
 
-      if (frq < Param::Get(Param::ffwstart))
-      {
-         moddedfwkp = 0;
-      }
-      else if (frq > Param::Get(Param::fmax))
-      {
-         moddedfwkp = fwBaseGain;
-      }
-      else
-      {
-         moddedfwkp = fwBaseGain * (FP_TOINT(frq) - Param::GetInt(Param::ffwstart));
-         moddedfwkp/= Param::GetInt(Param::fmax) - Param::GetInt(Param::ffwstart);
-      }
-
       qController.SetIntegralGain(moddedKi);
       dController.SetIntegralGain(moddedKi);
-      fwController.SetProportionalGain(moddedfwkp * dir);
 
       ProcessCurrents(id, iq);
 
-      if (opmode == MOD_RUN && initwait == 0)
+      if (opmode == MOD_MANUAL)
       {
-         s32fp fwIdRef = fwController.RunProportionalOnly(iq);
-         dController.SetRef(idref + fwIdRef);
-         Param::SetFixed(Param::ifw, fwIdRef);
-      }
-      else if (opmode == MOD_MANUAL)
-      {
-         idref = Param::Get(Param::manualid);
-         dController.SetRef(idref);
+         dController.SetRef(Param::Get(Param::manualid));
          qController.SetRef(Param::Get(Param::manualiq));
       }
 
@@ -108,11 +84,12 @@ void PwmGeneration::Run()
       Param::SetFixed(Param::fstat, frq);
       Param::SetFixed(Param::angle, DIGIT_TO_DEGREE(angle));
       Param::SetFixed(Param::idc, idcFiltered);
+      Param::SetInt(Param::qlimit, qlimit);
       Param::SetInt(Param::uq, uq);
       Param::SetInt(Param::ud, ud);
 
       /* Shut down PWM on stopped motor or init phase */
-      if ((0 == frq && 0 == idref && 0 == qController.GetRef()) || initwait > 0)
+      if ((0 == frq && 0 == dController.GetRef() && 0 == qController.GetRef()) || initwait > 0)
       {
          timer_disable_break_main_output(PWM_TIMER);
          dController.ResetIntegrator();
@@ -146,19 +123,22 @@ void PwmGeneration::SetTorquePercent(float torquePercent)
 {
    int32_t is = Param::GetFloat(Param::throtcur) * torquePercent;
    int32_t id, iq;
+   int32_t fwRef = Param::GetInt(Param::qlimit) - 2000;
 
-   FOC::Mtpa(is, id, iq);
+   fwController.SetRef(fwRef);
+   int32_t ifw = fwController.RunProportionalOnly(ABS(Param::GetInt(Param::uq)));
+
+   FOC::Mtpa(is, ifw, id, iq);
 
    qController.SetRef(FP_FROMINT(iq));
-   fwController.SetRef(FP_FROMINT(iq));
-   idref = FP_FROMINT(id);
+   dController.SetRef(FP_FROMINT(id));
 }
 
 void PwmGeneration::SetControllerGains(int kp, int ki, int fwkp)
 {
    qController.SetGains(kp, ki);
    dController.SetGains(kp, ki);
-   fwBaseGain = fwkp;
+   fwController.SetProportionalGain(fwkp);
    curki = ki;
 }
 
@@ -169,7 +149,6 @@ void PwmGeneration::PwmInit()
    slipIncr = FRQ_TO_ANGLE(fslip);
    Encoder::SetPwmFrequency(pwmfrq);
    initwait = pwmfrq / 2; //0.5s
-   idref = 0;
    qController.ResetIntegrator();
    qController.SetCallingFrequency(pwmfrq);
    qController.SetMinMaxY(-maxVd, maxVd);
